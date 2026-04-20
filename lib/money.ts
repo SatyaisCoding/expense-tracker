@@ -1,6 +1,6 @@
 /**
- * Convert a user-input decimal string to integer cents.
- * e.g. "123.45" → 12345, "100" → 10000
+ * Converts a decimal string (e.g. "123.45") to integer cents.
+ * Construction logic avoids parseFloat to prevent precision error.
  */
 export function toCents(decimalStr: string): number {
   const [intPart, fracPart = ""] = decimalStr.split(".");
@@ -9,8 +9,7 @@ export function toCents(decimalStr: string): number {
 }
 
 /**
- * Convert integer cents to a formatted currency string.
- * e.g. 12345 → "₹123.45"
+ * Formats integer cents to a currency string (₹).
  */
 export function fromCents(cents: number): string {
   return new Intl.NumberFormat("en-IN", {
@@ -18,11 +17,4 @@ export function fromCents(cents: number): string {
     currency: "INR",
     minimumFractionDigits: 2,
   }).format(cents / 100);
-}
-
-/**
- * Format cents as a plain decimal string (for totals display).
- */
-export function centsToDecimalStr(cents: number): string {
-  return (cents / 100).toFixed(2);
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import ExpenseForm from "@/components/ExpenseForm";
 import ExpenseList from "@/components/ExpenseList";
 import FilterBar from "@/components/FilterBar";
@@ -8,83 +8,68 @@ import type { Expense } from "@/lib/types";
 
 export default function ExpenseApp() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [category, setCategory] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const fetchExpenses = useCallback(async (category: string) => {
-    setIsLoading(true);
-    setFetchError(null);
+  const loadData = useCallback(async (cat: string) => {
+    setLoading(true);
+    setError(null);
     try {
-      const params = new URLSearchParams({ sort: "date_desc" });
-      if (category) params.set("category", category);
-      const res = await fetch(`/api/expenses?${params}`);
-      if (!res.ok) throw new Error("Failed to load expenses");
-      const data: Expense[] = await res.json();
-      setExpenses(data);
-    } catch (err) {
-      setFetchError(err instanceof Error ? err.message : "Unexpected error");
+      const url = cat ? `/api/expenses?category=${cat}` : "/api/expenses";
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Failed to load data");
+      setExpenses(await res.json());
+    } catch (err: any) {
+      setError(err.message);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchExpenses(selectedCategory);
-  }, [selectedCategory, fetchExpenses]);
+    loadData(category);
+  }, [category, loadData]);
 
-  const handleCategoryChange = (cat: string) => {
-    setSelectedCategory(cat);
-  };
-
-  const handleExpenseAdded = (newExpense: Expense) => {
-    // Optimistic prepend — keep the list sorted newest first
-    if (!selectedCategory || newExpense.category === selectedCategory) {
-      setExpenses((prev) => {
-        // Prevent duplicates (idempotent retry may return an existing expense)
-        if (prev.some((e) => e.id === newExpense.id)) return prev;
-        return [newExpense, ...prev];
+  const onAdd = (newExp: Expense) => {
+    // Only prepend if the new item matches the current filter
+    if (!category || newExp.category === category) {
+      setExpenses(prev => {
+        // Double-check for duplicate IDs (though idempotency key handles this on backend)
+        if (prev.find(e => e.id === newExp.id)) return prev;
+        return [newExp, ...prev];
       });
     }
   };
 
   return (
-    <div className="space-y-8">
-      {/* Add Expense Card */}
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6">
-        <h2 className="text-lg font-semibold text-slate-800 mb-5 flex items-center gap-2">
-          <span className="text-indigo-500">+</span> Add New Expense
-        </h2>
-        <ExpenseForm onExpenseAdded={handleExpenseAdded} />
-      </div>
+    <div className="space-y-10 pb-20">
+      <section className="bg-white rounded-3xl border border-slate-200 p-8 shadow-sm">
+        <header className="mb-6">
+          <h2 className="text-xl font-bold text-slate-900">Add Transaction</h2>
+          <p className="text-xs text-slate-500">Record your spending — no more floating point errors.</p>
+        </header>
+        <ExpenseForm onExpenseAdded={onAdd} />
+      </section>
 
-      {/* Expense List Card */}
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <h2 className="text-lg font-semibold text-slate-800">
-            Your Expenses
-          </h2>
+      <section className="space-y-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-slate-900">Transactions</h2>
+          <FilterBar 
+            selectedCategory={category} 
+            onCategoryChange={setCategory} 
+          />
         </div>
 
-        <FilterBar
-          selectedCategory={selectedCategory}
-          onCategoryChange={handleCategoryChange}
-        />
-
-        {fetchError ? (
-          <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-700">
-            ⚠ {fetchError} —{" "}
-            <button
-              onClick={() => fetchExpenses(selectedCategory)}
-              className="underline font-medium hover:text-red-800"
-            >
-              Retry
-            </button>
+        {error ? (
+          <div className="p-4 rounded-xl bg-red-50 text-red-700 text-sm border border-red-100 flex justify-between items-center">
+            <span>{error}</span>
+            <button onClick={() => loadData(category)} className="font-bold underline">Retry</button>
           </div>
         ) : (
-          <ExpenseList expenses={expenses} isLoading={isLoading} />
+          <ExpenseList expenses={expenses} isLoading={loading} />
         )}
-      </div>
+      </section>
     </div>
   );
 }
